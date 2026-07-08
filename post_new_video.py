@@ -91,7 +91,7 @@ def post_to_x(title, url, thumbnail_path):
         access_token_secret=os.environ["X_ACCESS_SECRET"],
     )
 
-    text = f"新しい動画を投稿しました\n{title}\n{url}"
+    text = f"【新着動画更新!!】\n\n是非参考に見てみてね！\n\n{title}\n{url}"
     text = text[:280]
 
     media_ids = None
