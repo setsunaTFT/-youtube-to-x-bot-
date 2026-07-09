@@ -2,9 +2,16 @@ name: YouTube to X auto post
 
 on:
   schedule:
-    # 15分おきにチェック（UTC基準。負荷を抑えたいなら間隔を伸ばしてOK）
-    - cron: "*/15 * * * *"
+    # 10分おきにチェック（UTC基準。GitHub側の混雑で多少ズレることがある）
+    - cron: "*/10 * * * *"
+    # 60日間pushが無いとscheduleが自動停止するのを防ぐための週次keep-alive
+    - cron: "0 3 * * 1"
   workflow_dispatch: {}  # 手動実行もできるようにしておく
+
+# 同時に複数のワークフローが走って状態ファイルの取り合いにならないようにする
+concurrency:
+  group: youtube-to-x-post
+  cancel-in-progress: false
 
 permissions:
   contents: write  # last_video_id.txt をコミットするために必要
@@ -33,10 +40,15 @@ jobs:
           X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
         run: python post_new_video.py
 
+      - name: keep-alive用タイムスタンプ更新（週次実行時のみ）
+        if: github.event.schedule == '0 3 * * 1'
+        run: date -u +"%Y-%m-%dT%H:%M:%SZ" > .keep-alive
+
       - name: 状態ファイルをコミット
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add last_video_id.txt
-          git diff --staged --quiet || git commit -m "update last posted video id"
+          git add last_video_id.txt .keep-alive 2>/dev/null || git add last_video_id.txt
+          git diff --staged --quiet || git commit -m "update last posted video id / keep-alive"
+          git pull --rebase origin main
           git push
